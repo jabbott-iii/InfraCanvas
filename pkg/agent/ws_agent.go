@@ -1394,9 +1394,6 @@ func (a *WSAgent) handleExecEnd(data json.RawMessage) {
 		es.ptmx.Close()
 	} else if es.dockerSess != nil {
 		es.dockerSess.Attach.Close()
-		if es.lxd && a.actionExecutor != nil {
-			a.actionExecutor.LXDCloseExec(es.dockerSess.ExecID)
-		}
 	} else if es.k8sSess != nil {
 		es.k8sSess.Close()
 	}

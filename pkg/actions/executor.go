@@ -181,6 +181,17 @@ func (e *ActionExecutor) ExecuteAction(ctx context.Context, action *Action) (*Ac
 		result, err = e.kubernetesExecutor.ExecuteAction(ctx, action)
 
 	case "lxd":
+		if e.lxdExecutor == nil {
+			err = fmt.Errorf("lxd is not available")
+			result = &ActionResult{
+				Success:   false,
+				Message:   "LXD is not available",
+				Error:     err.Error(),
+				StartTime: startTime,
+				EndTime:   time.Now(),
+			}
+			break
+		}
 		result, err = e.lxdExecutor.ExecuteAction(ctx, action)
 
 	default:

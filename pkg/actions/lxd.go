@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -163,10 +164,7 @@ func (l *LXDExecutor) ExecCreate(ctx context.Context, containerID string, cmd []
 	if err := json.Unmarshal(resp.Metadata, &meta); err != nil {
 		return nil, fmt.Errorf("exec create: decode metadata: %w", err)
 	}
-	dataSecret := meta.FDS["0"]
-	if dataSecret == "" {
-		dataSecret = meta.FDS["1"]
-	}
+	dataSecret, controlSecret := lxdExecSecrets(meta.FDS)
 	if dataSecret == "" {
 		return nil, fmt.Errorf("exec create: missing websocket secret")
 	}
@@ -178,7 +176,7 @@ func (l *LXDExecutor) ExecCreate(ctx context.Context, containerID string, cmd []
 		return nil, fmt.Errorf("exec attach: %w", err)
 	}
 
-	if controlSecret := meta.FDS["control"]; controlSecret != "" {
+	if controlSecret != "" {
 		controlWS, err := l.dialOpWebsocket(ctx, resp.Operation, controlSecret)
 		if err != nil {
 			_ = dataWS.Close()
@@ -290,7 +288,7 @@ func (l *LXDExecutor) doJSON(ctx context.Context, method, apiPath string, body i
 		if err != nil {
 			return err
 		}
-		bodyReader = strings.NewReader(string(buf))
+		bodyReader = bytes.NewReader(buf)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, "http://lxd"+apiPath, bodyReader)
 	if err != nil {
@@ -341,4 +339,15 @@ func (l *LXDExecutor) dialOpWebsocket(ctx context.Context, opPath, secret string
 
 func lxdOperationID(opPath string) string {
 	return path.Base(strings.TrimRight(opPath, "/"))
+}
+
+func lxdExecSecrets(fds map[string]string) (dataSecret, controlSecret string) {
+	if fds == nil {
+		return "", ""
+	}
+	dataSecret = fds["0"]
+	if dataSecret == "" {
+		dataSecret = fds["1"]
+	}
+	return dataSecret, fds["control"]
 }
