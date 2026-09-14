@@ -28,4 +28,20 @@ func TestLXDExecSecrets(t *testing.T) {
 			t.Fatalf("got (%q,%q), want (%q,%q)", data, control, "data-secret", "")
 		}
 	})
+
+	t.Run("nil map", func(t *testing.T) {
+		data, control := lxdExecSecrets(nil)
+		if data != "" || control != "" {
+			t.Fatalf("got (%q,%q), want (%q,%q)", data, control, "", "")
+		}
+	})
+
+	t.Run("missing data fds", func(t *testing.T) {
+		data, control := lxdExecSecrets(map[string]string{
+			"control": "control-secret",
+		})
+		if data != "" || control != "control-secret" {
+			t.Fatalf("got (%q,%q), want (%q,%q)", data, control, "", "control-secret")
+		}
+	})
 }

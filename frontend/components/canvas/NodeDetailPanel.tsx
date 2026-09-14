@@ -55,6 +55,9 @@ function containerLayer(n: any): 'docker' | 'lxd' {
 function containerTarget(n: any) {
   return { layer: containerLayer(n), entity_type: 'container', entity_id: n.id }
 }
+function dockerContainerTarget(n: any) {
+  return { layer: 'docker', entity_type: 'container', entity_id: n.id }
+}
 function containerActionType(n: any, verb: 'restart' | 'stop' | 'start') {
   const prefix = containerLayer(n) === 'lxd' ? 'lxd' : 'docker'
   return `${prefix}_${verb}_container`
@@ -79,7 +82,7 @@ const ACTIONS: Record<string, ActionDef[]> = {
       buildPayload: (n) => ({ action_id: `start-${Date.now()}`, type: containerActionType(n, 'start'), target: containerTarget(n), parameters: {} }) },
     { id: 'update_image', label: 'Update Image', Icon: Tag,
       form: [{ key: 'image', label: 'New Image:Tag', placeholder: 'nginx:1.25', defaultValue: (n) => n.metadata?.image ?? '' }],
-      buildPayload: (n, v) => ({ action_id: `upd-img-${Date.now()}`, type: 'docker_update_container_image', target: containerTarget(n), parameters: { image: v.image } }) },
+      buildPayload: (n, v) => ({ action_id: `upd-img-${Date.now()}`, type: 'docker_update_container_image', target: dockerContainerTarget(n), parameters: { image: v.image } }) },
   ],
   image: [
     { id: 'pull', label: 'Pull / Re-pull', Icon: Download,

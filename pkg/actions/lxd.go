@@ -309,14 +309,23 @@ func (l *LXDExecutor) doJSON(ctx context.Context, method, apiPath string, body i
 		}
 		return fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
-	if out == nil {
-		return nil
-	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
 		return err
 	}
-	if r, ok := out.(*lxdResponse); ok && r.Error != "" {
-		return errors.New(r.Error)
+	if out != nil && len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return err
+		}
+	}
+	var envelope lxdResponse
+	if len(respBody) > 0 && json.Unmarshal(respBody, &envelope) == nil {
+		if envelope.Type == "error" || envelope.Error != "" || envelope.StatusCode >= 400 {
+			if envelope.Error != "" {
+				return errors.New(envelope.Error)
+			}
+			return fmt.Errorf("lxd api %s (status_code=%d)", envelope.Type, envelope.StatusCode)
+		}
 	}
 	return nil
 }
