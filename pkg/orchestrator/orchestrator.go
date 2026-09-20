@@ -312,12 +312,14 @@ func (o *Orchestrator) discoverKubernetes(snapshot *models.InfraSnapshot, mu *sy
 	defer mu.Unlock()
 
 	// Add cluster entity
+	connectedContexts := 0
 	if cluster != nil {
 		snapshot.Entities[cluster.ID] = cluster
-		if o.localKubeconfigAutoDiscovery.Ran && o.localKubeconfigAutoDiscovery.DiscoveredContexts > 0 {
-			o.localKubeconfigAutoDiscovery.ConnectedContexts = 1
-			snapshot.Metadata.LocalKubeconfigAutoDiscovery = o.localKubeconfigAutoDiscovery
-		}
+		connectedContexts++
+	}
+	if o.localKubeconfigAutoDiscovery.Ran && o.localKubeconfigAutoDiscovery.DiscoveredContexts > 0 {
+		o.localKubeconfigAutoDiscovery.ConnectedContexts = connectedContexts
+		snapshot.Metadata.LocalKubeconfigAutoDiscovery = o.localKubeconfigAutoDiscovery
 	}
 
 	// Add nodes

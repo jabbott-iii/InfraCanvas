@@ -61,7 +61,7 @@ export interface GraphSnapshot {
   hostId: string
   timestamp: string
   collectionDuration: number
-  localKubeconfigAutoDiscovery?: {
+  localKubeconfigAutoDiscovery: {
     enabled: boolean
     ran: boolean
     discoveredContexts: number
