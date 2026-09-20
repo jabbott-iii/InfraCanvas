@@ -13,9 +13,10 @@ import (
 
 // Discovery implements Kubernetes-level infrastructure discovery
 type Discovery struct {
-	clientset *kubernetes.Clientset
-	config    *rest.Config
-	cache     *Cache
+	clientset         *kubernetes.Clientset
+	config            *rest.Config
+	cache             *Cache
+	connectedContexts int
 }
 
 // NewDiscovery creates a new Kubernetes discovery instance, resolving the
@@ -82,9 +83,10 @@ func NewDiscoveryFromConfig(config *rest.Config) (*Discovery, error) {
 	}
 
 	return &Discovery{
-		clientset: clientset,
-		config:    config,
-		cache:     NewCache(30 * time.Second),
+		clientset:         clientset,
+		config:            config,
+		cache:             NewCache(30 * time.Second),
+		connectedContexts: 0,
 	}, nil
 }
 
@@ -111,6 +113,7 @@ func (d *Discovery) IsAvailable() bool {
 
 // DiscoverAll performs a complete Kubernetes discovery
 func (d *Discovery) DiscoverAll() (*models.Cluster, []models.Node, []models.Namespace, []models.Deployment, []models.StatefulSet, []models.DaemonSet, []models.Job, []models.CronJob, []models.Pod, []models.K8sService, []models.Ingress, []models.ConfigMap, []models.Secret, []models.PersistentVolumeClaim, []models.PersistentVolume, []models.StorageClass, []models.Event, error) {
+	d.connectedContexts = 0
 	if !d.IsAvailable() {
 		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("Kubernetes is not available")
 	}
@@ -209,7 +212,14 @@ func (d *Discovery) DiscoverAll() (*models.Cluster, []models.Node, []models.Name
 		return cluster, nodes, namespaces, deployments, statefulsets, daemonsets, jobs, cronjobs, pods, services, ingresses, configmaps, secrets, pvcs, pvs, storageclasses, nil, fmt.Errorf("failed to get events: %w", err)
 	}
 
+	d.connectedContexts = 1
 	return cluster, nodes, namespaces, deployments, statefulsets, daemonsets, jobs, cronjobs, pods, services, ingresses, configmaps, secrets, pvcs, pvs, storageclasses, events, nil
+}
+
+// ConnectedContexts returns how many local kubeconfig contexts were
+// successfully connected in the last discovery pass.
+func (d *Discovery) ConnectedContexts() int {
+	return d.connectedContexts
 }
 
 // InvalidateCache invalidates all cached Kubernetes data

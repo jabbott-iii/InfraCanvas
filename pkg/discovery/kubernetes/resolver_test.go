@@ -39,7 +39,7 @@ func TestResolveKubeConfig_CountsLocalContexts(t *testing.T) {
 
 	tempDir := t.TempDir()
 	kubeconfigPath := filepath.Join(tempDir, "config")
-	kubeconfig := `apiVersion: v1
+	writeKubeconfig(t, kubeconfigPath, `apiVersion: v1
 kind: Config
 clusters:
 - cluster:
@@ -65,14 +65,8 @@ users:
 - name: user-b
   user:
     token: token-b
-`
-	if err := os.WriteFile(kubeconfigPath, []byte(kubeconfig), 0o600); err != nil {
-		t.Fatalf("write kubeconfig: %v", err)
-	}
-
-	origKubeconfig := os.Getenv("KUBECONFIG")
+`)
 	t.Setenv("KUBECONFIG", kubeconfigPath)
-	defer func() { _ = os.Setenv("KUBECONFIG", origKubeconfig) }()
 
 	_, info, err := ResolveKubeConfig(true)
 	if err != nil {
@@ -89,5 +83,66 @@ users:
 	}
 	if info.ConnectedContexts != 0 {
 		t.Fatalf("expected 0 connected contexts before discovery success, got %d", info.ConnectedContexts)
+	}
+}
+
+func TestResolveKubeConfig_KubeconfigPathListCountsMergedContexts(t *testing.T) {
+	origInCluster := inClusterConfig
+	inClusterConfig = func() (*rest.Config, error) {
+		return nil, os.ErrNotExist
+	}
+	defer func() { inClusterConfig = origInCluster }()
+
+	tempDir := t.TempDir()
+	kubeconfigPathA := filepath.Join(tempDir, "config-a")
+	kubeconfigPathB := filepath.Join(tempDir, "config-b")
+	writeKubeconfig(t, kubeconfigPathA, `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://cluster-a.example.com
+  name: cluster-a
+contexts:
+- context:
+    cluster: cluster-a
+    user: user-a
+  name: context-a
+users:
+- name: user-a
+  user:
+    token: token-a
+`)
+	writeKubeconfig(t, kubeconfigPathB, `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://cluster-b.example.com
+  name: cluster-b
+contexts:
+- context:
+    cluster: cluster-b
+    user: user-b
+  name: context-b
+current-context: context-b
+users:
+- name: user-b
+  user:
+    token: token-b
+`)
+
+	t.Setenv("KUBECONFIG", kubeconfigPathA+string(os.PathListSeparator)+kubeconfigPathB)
+	_, info, err := ResolveKubeConfig(true)
+	if err != nil {
+		t.Fatalf("ResolveKubeConfig returned error: %v", err)
+	}
+	if info.DiscoveredContexts != 2 {
+		t.Fatalf("expected merged context count 2, got %d", info.DiscoveredContexts)
+	}
+}
+
+func writeKubeconfig(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write kubeconfig: %v", err)
 	}
 }
